@@ -2,14 +2,10 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import datetime as dt
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import plotly.express as px
-from scipy.optimize import minimize
 from scipy import optimize
 import math
 from dateutil.relativedelta import relativedelta
-from mftool import Mftool
 import time
 
 
@@ -21,7 +17,6 @@ tday = dt.datetime.today()
 col1, col2 = st.sidebar.columns(2)
 col1.image('gw_logo.png', width=300)
 
-mf = Mftool()
 
 months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 tday = dt.date(2023,3,31)
