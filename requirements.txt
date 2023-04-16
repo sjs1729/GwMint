@@ -1,3 +1,3 @@
 beautifulsoup4==4.9.1
 pandas==1.2.4
-scipy @ file:///opt/concourse/worker/volumes/live/4b862b0b-d4dd-45bc-4077-6b029a41aced/volume/scipy_1616703213337/work
+scipy== 1.6.2
