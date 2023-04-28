@@ -58,12 +58,14 @@ def get_schm_mapping_data():
 @st.cache_data()
 def get_balance_units_value(amfi_code,bal_units):
     try:
-        nav=df_schm_map[df_schm_map['Amfi_Code']==amfi_code]['NAV'].iloc[0]
+        nav= df_schm_map[df_schm_map['Amfi_Code']==amfi_code]['NAV'].iloc[0]
         bal = round(nav * bal_units,2)
     except:
         bal = 10.0 * bal_units
 
     return bal
+
+
 
 @st.cache_data()
 def get_transaction_data():
@@ -165,7 +167,38 @@ def xirr(rate,cash_flow,terminal_value=0):
 
     return  npv+terminal_value
 
+@st.cache_data()
+def get_top_cust_schemes():
 
+    rec = []
+    for i in df['APPLICANT'].unique():
+        df_cust = df[df['APPLICANT'] == i]
+
+        for j in df_cust['SCHEME NAME'].unique():
+            df_cust_schm = df_cust[df_cust['SCHEME NAME'] == j]
+            amfi_code = df_schm_map.loc[j]['Amfi_Code']
+            schm_balance_units = 0.0
+            for k in df_cust_schm.index:
+                units = df_cust_schm.loc[k]['UNITS']
+                if units != units:
+                    units = 0.0
+
+                t_type = df_cust_schm.loc[k]['TXN TYPE']
+                if t_type in  ['SIP','Systematic Transfer In','Purchase','Switch In']:
+                    schm_balance_units = schm_balance_units + units
+                elif t_type in  ['SWP','Systematic Transfer Out','Sell','Switch Out']:
+                    schm_balance_units = schm_balance_units - units
+
+            if schm_balance_units < 0:
+                schm_balance_units=0.0
+            bal_units_value = get_balance_units_value(amfi_code,schm_balance_units)
+
+            values = i,j,amfi_code,schm_balance_units,bal_units_value
+            rec.append(values)
+
+    df_top_values = pd.DataFrame(rec,columns=['APPLICANT','SCHEME','Amfi_Code','BalUnits','MarketValue'])
+
+    return df_top_values
 
 @st.cache_data()
 def get_schm_trans_dtls(txn_type,df_x):
@@ -209,7 +242,8 @@ def get_schm_trans_dtls(txn_type,df_x):
             elif t_type in  ['SWP','Systematic Transfer Out','Sell','Switch Out']:
                 schm_balance_units = schm_balance_units - units
 
-
+        if schm_balance_units < 0:
+            schm_balance_units=0.0
         bal_units_value = get_balance_units_value(amfi_code,schm_balance_units)
         #bal_units_value = 0
 
@@ -307,7 +341,8 @@ def get_transaction_details(txn_type,df_x):
             elif t_type in  ['SWP','Systematic Transfer Out','Sell','Switch Out']:
                 schm_balance_units = schm_balance_units - units
 
-
+        if schm_balance_units < 0:
+            schm_balance_units=0.0
         bal_units_value = get_balance_units_value(amfi_code,schm_balance_units)
         #bal_units_value = 0
 
@@ -424,7 +459,7 @@ def get_markdown_table(data, header='Y', footer='Y'):
 
     return html_script
 
-def get_markdown_dict(dict, font_size = 10):
+def get_markdown_dict(dict, font_size = 10, format_amt = 'N'):
 
 
     html_script = "<table><style> table {border-collapse: collapse;width: 100%; border: 1px solid #ddd;}th {background-color: #ffebcc;padding:0px;} td {font-size='5px;text-align:center;padding:0px;'}tr:nth-child(even) {background-color: #f2f2f2;}</style><thead><tr style='width:100%;border:none;font-family:Courier; color:Red; font-size:15px'>"
@@ -436,7 +471,10 @@ def get_markdown_dict(dict, font_size = 10):
         if dict[j] == dict[j]:
             html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:{}px;padding:1px;';>".format(font_size)
             html_script = html_script + "<td style='border:none;padding:2px;font-family:Courier; color:Blue; font-size:{}px;text-align:left' rowspan='1'>{}</td>".format(font_size,j)
-            html_script = html_script + "<td style='border:none;padding:4px;font-family:Courier; color:Black; font-size:{}px;text-align:left' rowspan='1'>{}</td>".format(font_size -1,dict[j])
+            if format_amt == 'N':
+                html_script = html_script + "<td style='border:none;padding:4px;font-family:Courier; color:Black; font-size:{}px;text-align:left' rowspan='1'>{}</td>".format(font_size -1,dict[j])
+            else:
+                html_script = html_script + "<td style='border:none;padding:4px;font-family:Courier; color:Black; font-size:{}px;text-align:right' rowspan='1'>{}</td>".format(font_size -1,display_amount(dict[j]))
 
 
 
@@ -456,12 +494,16 @@ def display_amount(amount):
     else:
         amt_str = '₹ '
 
-    decimal_part_str = str(amount - int(amount)).split(".")
+    decimal_part_str = str(round(amount,2)).split(".")
 
     if len(decimal_part_str) > 1:
         decimal_part = decimal_part_str[1][:2]
+        if len(decimal_part) == 1:
+            decimal_part = decimal_part.ljust(2,'0')
+        else:
+            decimal_part = decimal_part.rjust(2,'0')
     else:
-        decimal_part = decimal_part_str[0][:2]
+        decimal_part = '00'
 
 
     amount = round(amount,2)
@@ -475,7 +517,6 @@ def display_amount(amount):
     th_bal  = int(lkh_bal - th_amt * 1000)
 
 
-    print(cr_amt,cr_bal,lkh_amt,lkh_bal,th_amt,th_bal, decimal_part)
     if cr_amt > 0:
         if cr_bal > 0:
             amt_str = amt_str + str(cr_amt) + "," + str(lkh_amt).rjust(2,'0') + "," + str(th_amt).rjust(2,'0') + "," + str(th_bal).rjust(3,'0') + "." + decimal_part
@@ -1002,14 +1043,74 @@ if option == 'GroWealth':
 
 if option == 'Reports':
 
-    rpt_option = st.selectbox("Reports", ( 'SWP Exhaustion Alert','Debt Taxation Report','STP Exhaustion Report','SIP Termination Report','Sourav Das'), 0)
+    rpt_option = st.selectbox("Reports", ( 'Top25 Schemes','Top25 Customers','SWP Exhaustion Alert','Debt Taxation Report','STP Exhaustion Report','SIP Termination Report','Sourav Das'), 0)
 
     df_rpt_swp, df_rpt_sip, df_rpt_sys_in, df_rpt_stp_out, df_rpt_sys_out = get_rpt_df()
 
+    if rpt_option == 'Top25 Schemes':
+
+        df_top = get_top_cust_schemes()
+        df_top25_schemes = df_top.groupby(by=['SCHEME'])['MarketValue'].sum().sort_values(ascending=False).head(25)
+        df_top25_schemes.loc['TOTAL']= df_top25_schemes.sum()
+        dict_top25_schemes = df_top25_schemes.round(2).to_dict()
+
+        html_text = get_markdown_dict(dict_top25_schemes,15,'Y')
+        st.markdown(html_text,unsafe_allow_html=True)
+
+        a = [j for j in dict_top25_schemes.keys()]
+        b = [j for j in dict_top25_schemes.values()]
+
+        frame = { 'Top Schemes': a, 'Market Value':b}
+        result = pd.DataFrame(frame)
+        result.set_index('Top Schemes', inplace=True)
+
+
+
+        csvfile = convert_df(result)
+
+        st.markdown('<BR>',unsafe_allow_html=True)
+        st.download_button(
+            label="Download Data as CSV",
+            data=csvfile,
+            file_name='Top 25 Schemes.csv',
+            mime='text/csv',
+        )
+
+    if rpt_option == 'Top25 Customers':
+
+        df_top = get_top_cust_schemes()
+
+        df_top25_cust = df_top.groupby(by=['APPLICANT'])['MarketValue'].sum().sort_values(ascending=False).head(25)
+        df_top25_cust.loc['TOTAL']= df_top25_cust.sum()
+        dict_top25_cust = df_top25_cust.round(2).to_dict()
+        html_text = get_markdown_dict(dict_top25_cust,15,'Y')
+        st.markdown(html_text,unsafe_allow_html=True)
+
+        a = [j for j in dict_top25_cust.keys()]
+        b = [j for j in dict_top25_cust.values()]
+
+        frame = { 'Top Customers': a, 'Market Value':b}
+        result = pd.DataFrame(frame)
+        result.set_index('Top Customers', inplace=True)
+
+
+
+        csvfile = convert_df(result)
+
+        st.markdown('<BR>',unsafe_allow_html=True)
+        st.download_button(
+            label="Download Data as CSV",
+            data=csvfile,
+            file_name='Top 25 Customers.csv',
+            mime='text/csv',
+        )
 
     if rpt_option == 'SWP Exhaustion Alert' :
         df_swp_exhaust = get_sys_exhaust(df_rpt_sys_out,'SWP')
 
+        html_script = get_markdown_table(df_debt_taxation)
+
+        st.markdown(html_script,unsafe_allow_html=True)
         html_script = get_markdown_table(df_swp_exhaust)
         st.markdown(html_script,unsafe_allow_html=True)
 
