@@ -1108,10 +1108,8 @@ if option == 'Reports':
     if rpt_option == 'SWP Exhaustion Alert' :
         df_swp_exhaust = get_sys_exhaust(df_rpt_sys_out,'SWP')
 
-        html_script = get_markdown_table(df_debt_taxation)
-
-        st.markdown(html_script,unsafe_allow_html=True)
         html_script = get_markdown_table(df_swp_exhaust)
+
         st.markdown(html_script,unsafe_allow_html=True)
 
         csvfile = convert_df(df_swp_exhaust)
