@@ -369,48 +369,17 @@ def get_monthly_details(mth, year):
 
     df_curr_mth = df[(df['Mth'] == mth ) & (df['Year'] == year )]
 
-    df_txn_group = df_curr_mth.groupby(by=['TXN TYPE']).sum()['TOTAL AMOUNT']
+    #df_txn_group = df_curr_mth.groupby(by=['TXN TYPE']).sum()['TOTAL AMOUNT']
 
+    mth_sip = df_curr_mth[df_curr_mth['TXN TYPE'] == 'SIP']['TOTAL AMOUNT'].sum()
+    mth_pur = df_curr_mth[df_curr_mth['TXN TYPE'] == 'Purchase']['TOTAL AMOUNT'].sum()
+    mth_stp_in = df_curr_mth[df_curr_mth['TXN TYPE'] == 'Systematic Transfer In']['TOTAL AMOUNT'].sum()
+    mth_swch_in = df_curr_mth[df_curr_mth['TXN TYPE'] == 'Switch In']['TOTAL AMOUNT'].sum()
+    mth_swp = df_curr_mth[df_curr_mth['TXN TYPE'] == 'SWP']['TOTAL AMOUNT'].sum()
+    mth_sell = df_curr_mth[df_curr_mth['TXN TYPE'] == 'Sell']['TOTAL AMOUNT'].sum()
+    mth_stp_out = df_curr_mth[df_curr_mth['TXN TYPE'] == 'Systematic Transfer Out']['TOTAL AMOUNT'].sum()
+    mth_swch_out = df_curr_mth[df_curr_mth['TXN TYPE'] == 'Switch Out']['TOTAL AMOUNT'].sum()
 
-    if 'SIP' in df_txn_group.index:
-        mth_sip = df_txn_group['SIP']
-    else:
-        mth_sip = 0.0
-
-    if 'Purchase' in df_txn_group.index:
-        mth_pur = df_txn_group['Purchase']
-    else:
-        mth_pur = 0.0
-
-    if 'Systematic Transfer In' in df_txn_group.index:
-        mth_stp_in = df_txn_group['Systematic Transfer In']
-    else:
-        mth_stp_in = 0.0
-
-    if 'Switch In' in df_txn_group.index:
-        mth_swch_in = df_txn_group['Switch In']
-    else:
-        mth_swch_in = 0.0
-
-    if 'SWP' in df_txn_group.index:
-        mth_swp = df_txn_group['SWP']
-    else:
-        mth_swp = 0.0
-
-    if 'Sell' in df_txn_group.index:
-        mth_sell = df_txn_group['Sell']
-    else:
-        mth_sell = 0.0
-
-    if 'Systematic Transfer Out' in df_txn_group.index:
-        mth_stp_out = df_txn_group['Systematic Transfer Out']
-    else:
-        mth_stp_out = 0.0
-
-    if 'Switch In' in df_txn_group.index:
-        mth_swch_out = df_txn_group['Switch Out']
-    else:
-        mth_swch_out = 0.0
 
     return mth_sip, mth_pur, mth_stp_in, mth_swch_in, mth_swp, mth_sell, mth_stp_out, mth_swch_out
 
