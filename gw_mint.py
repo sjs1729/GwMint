@@ -7,6 +7,8 @@ import math
 from dateutil.relativedelta import relativedelta
 import time
 import plotly.express as px
+from urllib.request import urlopen
+import json
 
 
 np.set_printoptions(precision=3)
@@ -65,7 +67,34 @@ def get_balance_units_value(amfi_code,bal_units):
 
     return bal
 
+@st.cache_data()
+def get_last_5_anv(amfi_code,tday):
+    try:
+        success = 'N'
+        url = 'https://api.mfapi.in/mf/{}'.format(amfi_code)
+        response = urlopen(url)
+        data_json = json.loads(response.read())
 
+        day_0 = float(data_json['data'][0]['nav'])
+        day_1 = float(data_json['data'][1]['nav'])
+        day_2 = float(data_json['data'][2]['nav'])
+        day_3 = float(data_json['data'][3]['nav'])
+        day_4 = float(data_json['data'][4]['nav'])
+        day_5 = float(data_json['data'][5]['nav'])
+
+        pct_0 = round(100*(day_0 - day_1)/day_1,2)
+        pct_1 = round(100*(day_1 - day_2)/day_2,2)
+        pct_2 = round(100*(day_2 - day_3)/day_3,2)
+        pct_3 = round(100*(day_3 - day_4)/day_4,2)
+        pct_4 = round(100*(day_4 - day_5)/day_5,2)
+
+        success = 'Y'
+        result='{}:{}:{}:{}:{}:{}:{}:{}'.format(success,tday,day_0,pct_0,pct_1,pct_2,pct_3,pct_4)
+
+    except:
+        result='{}-{}-Exception'.format(success,tday)
+
+    return result
 
 @st.cache_data()
 def get_transaction_data():
@@ -1047,26 +1076,44 @@ if option == 'Reports':
 
     df_rpt_swp, df_rpt_sip, df_rpt_sys_in, df_rpt_stp_out, df_rpt_sys_out = get_rpt_df()
 
+
     if rpt_option == 'Top25 Schemes':
 
+        tday = dt.date.today()
+        tday = "{}{}{}".format(tday.year,tday.month,tday.day)
         df_top = get_top_cust_schemes()
         df_top25_schemes = df_top.groupby(by=['SCHEME'])['MarketValue'].sum().sort_values(ascending=False).head(25)
         df_top25_schemes.loc['TOTAL']= df_top25_schemes.sum()
         dict_top25_schemes = df_top25_schemes.round(2).to_dict()
 
-        html_text = get_markdown_dict(dict_top25_schemes,15,'Y')
+        rec = []
+
+        for i in dict_top25_schemes.keys():
+            if i != 'TOTAL':
+                amfi_code = df_schm_map.loc[i]['Amfi_Code']
+                result = get_last_5_anv(amfi_code,tday)
+            else:
+                result = 'N'
+
+            res_split = result.split(":")
+            if len(res_split) == 8:
+                values = i, display_amount(dict_top25_schemes[i]),res_split[2],res_split[3],res_split[4],res_split[5],res_split[6],res_split[7]
+            else:
+                values = i, display_amount(dict_top25_schemes[i]),'','','','','',''
+
+            rec.append(values)
+
+        df_top25_schm = pd.DataFrame(rec,columns=['Scheme','MarketValue','NAV','Day1_Pct','Day2_Pct','Day3_Pct','Day4_Pct','Day5_Pct'])
+
+
+        html_text = get_markdown_table(df_top25_schm)
         st.markdown(html_text,unsafe_allow_html=True)
 
-        a = [j for j in dict_top25_schemes.keys()]
-        b = [j for j in dict_top25_schemes.values()]
-
-        frame = { 'Top Schemes': a, 'Market Value':b}
-        result = pd.DataFrame(frame)
-        result.set_index('Top Schemes', inplace=True)
 
 
 
-        csvfile = convert_df(result)
+
+        csvfile = convert_df(df_top25_schm)
 
         st.markdown('<BR>',unsafe_allow_html=True)
         st.download_button(
