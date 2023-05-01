@@ -68,7 +68,7 @@ def get_balance_units_value(amfi_code,bal_units):
     return bal
 
 @st.cache_data()
-def get_last_5_anv(amfi_code,tday):
+def get_last_5_nav(amfi_code,tday):
     try:
         success = 'N'
         url = 'https://api.mfapi.in/mf/{}'.format(amfi_code)
@@ -154,7 +154,7 @@ def get_transaction_data():
 
     return df
 
-option = st.sidebar.selectbox("Which Dashboard?", ( 'GroWealth','Customer View','Fund House View','Scheme View','Reports','Fund Details'), 0)
+option = st.sidebar.selectbox("Which Dashboard?", ( 'GroWealth','Customer View','Fund House View','Scheme View','Fund Details','Reports','Admin'), 0)
 st.title(option)
 
 df_schm_map = get_schm_mapping_data()
@@ -220,7 +220,9 @@ def get_top_cust_schemes():
 
             if schm_balance_units < 0:
                 schm_balance_units=0.0
+
             bal_units_value = get_balance_units_value(amfi_code,schm_balance_units)
+
 
             values = i,j,amfi_code,schm_balance_units,bal_units_value
             rec.append(values)
@@ -642,7 +644,7 @@ def get_xirr():
     rec = 'Total', display_amount(gw_inv_amt),display_amount(gw_mkt_value),gw_mkt_value,gw_xirr
     xirr_rec.append(rec)
 
-    df_xirr = pd.DataFrame(xirr_rec,columns=['Fund House','Amount Invested','Market Value','Mkt Value N','XIRR'])
+    df_xirr = pd.DataFrame(xirr_rec,columns=['Fund House','Amount Invested','Market Value','Mkt Value N','XIRR %'])
     #df_xirr = df_xirr.sort_values(by=['Mkt Value N'],ascending=False)
     return df_xirr
 
@@ -722,7 +724,7 @@ def get_scheme_xirr(df_fh):
     rec = 'Total', display_amount(fh_invested_amount), display_amount(fh_market_value),fh_market_value, fh_xirr
     xirr_rec.append(rec)
 
-    df_xirr = pd.DataFrame(xirr_rec,columns=['Scheme Name','Invested Amount','Market Value','Market Value N','XIRR'])
+    df_xirr = pd.DataFrame(xirr_rec,columns=['Scheme Name','Invested Amount','Market Value','Market Value N','XIRR %'])
 
     return df_xirr
 
@@ -882,7 +884,10 @@ if option == 'Customer View':
 
     if txn_select == 'All Transactions':
         df_tran_dtl = get_scheme_xirr(df_cust)
-        df_tran_dtl=df_tran_dtl.sort_values(by=['XIRR'],ascending=False)
+        overall_xirr = df_tran_dtl.loc[len(df_tran_dtl)-1]['XIRR %']
+        df_tran_dtl.at[len(df_tran_dtl)-1,'XIRR %'] = -100000.00
+        df_tran_dtl=df_tran_dtl.sort_values(by=['XIRR %'],ascending=False)
+        df_tran_dtl.at[len(df_tran_dtl)-1,'XIRR %'] = overall_xirr
         df_tran_dtl.drop(columns=[ 'Market Value N'],inplace=True)
 
     else:
@@ -940,14 +945,14 @@ if option == 'Fund House View':
     df_tran_dtl.drop(columns=[ 'Fund House'],inplace=True)
 
     df_tran_dtl['Invested Amount'] = ''
-    df_tran_dtl['XIRR'] = 0.0
+    df_tran_dtl['XIRR %'] = 0.0
     for i in df_tran_dtl.index:
         sch_name  = df_tran_dtl.loc[i]['Fund Name']
         inv_amt   = df_xirr[df_xirr['Scheme Name']== sch_name ]['Invested Amount'].iloc[0]
-        schm_xirr = df_xirr[df_xirr['Scheme Name']== sch_name ]['XIRR'].iloc[0]
+        schm_xirr = df_xirr[df_xirr['Scheme Name']== sch_name ]['XIRR %'].iloc[0]
 
         df_tran_dtl.at[i,'Invested Amount'] = inv_amt
-        df_tran_dtl.at[i,'XIRR'] = schm_xirr
+        df_tran_dtl.at[i,'XIRR %'] = schm_xirr
 
 
 
@@ -1057,10 +1062,10 @@ if option == 'GroWealth':
 
     #st.plotly_chart(display_table(df_xirr[['Fund House','Amount Invested','Market Value','XIRR']]), use_container_width=True)
 
-    html_script = get_markdown_table(df_xirr[['Fund House','Amount Invested','Market Value','XIRR']])
+    html_script = get_markdown_table(df_xirr[['Fund House','Amount Invested','Market Value','XIRR %']])
     st.markdown(html_script,unsafe_allow_html=True)
 
-    csvfile = convert_df(df_xirr[['Fund House','Amount Invested','Market Value','XIRR']])
+    csvfile = convert_df(df_xirr[['Fund House','Amount Invested','Market Value','XIRR %']])
 
     st.markdown('<BR>',unsafe_allow_html=True)
     st.download_button(
@@ -1091,7 +1096,7 @@ if option == 'Reports':
         for i in dict_top25_schemes.keys():
             if i != 'TOTAL':
                 amfi_code = df_schm_map.loc[i]['Amfi_Code']
-                result = get_last_5_anv(amfi_code,tday)
+                result = get_last_5_nav(amfi_code,tday)
             else:
                 result = 'N'
 
@@ -1469,3 +1474,35 @@ if option == 'Fund Details':
         #s_layout[2].write(df_top10_sector.index)
     except:
         st.markdown('<BR><BR>*** Data Not Available for {}'.format(schm_select),unsafe_allow_html=True)
+
+if option == 'Admin':
+
+    tday = dt.date.today()
+    tday = "{}{}{}".format(tday.year,tday.month,tday.day)
+
+
+    if st.button('Latest NAV'):
+        total_records = len(df_schm_map)
+        progress_text = "Updating NAV"
+        my_bar = st.progress(0.0, text=progress_text)
+        records_processed = 0
+        for i in df_schm_map.index:
+            amfi_code = df_schm_map.loc[i]['Amfi_Code']
+            result = get_last_5_nav(amfi_code,tday)
+
+            result_str = result.split(":")
+
+            if result_str[0] == 'Y':
+                latest_nav = float(result_str[2])
+                df_schm_map.at[i,'NAV'] = latest_nav
+
+
+            records_processed = records_processed + 1
+            percent_complete = round(records_processed/total_records,4)
+
+            progress_text = "{} % Processed".format(int(100*percent_complete))
+            my_bar.progress(percent_complete, text=progress_text)
+
+
+        df_schm_map.to_csv('Scheme_Code_Mapping.csv')
+        my_bar.progress(1.0, text='100% Processed')
