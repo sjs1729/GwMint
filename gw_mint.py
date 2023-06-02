@@ -10,10 +10,14 @@ import plotly.express as px
 from urllib.request import urlopen
 import json
 
+st.set_page_config(
+    page_title="GroWealth Investments       ",
+    page_icon="nirvana.ico",
+    layout="wide",
+)
 
 np.set_printoptions(precision=3)
 
-st.set_page_config(layout="wide")
 tday = dt.datetime.today()
 
 col1, col2 = st.sidebar.columns(2)
