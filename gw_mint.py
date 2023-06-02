@@ -21,7 +21,7 @@ col1.image('gw_logo.png', width=300)
 
 
 months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-tday = dt.date(2023,4,30)
+tday = dt.date(2023,5,31)
 
 curr_mth = tday.month
 curr_mth_year = tday.year
@@ -66,6 +66,27 @@ def get_balance_units_value(amfi_code,bal_units):
         bal = 10.0 * bal_units
 
     return bal
+
+@st.cache_data()
+def get_nav_date(amfi_code,tday):
+    try:
+        success = 'N'
+        url = 'https://api.mfapi.in/mf/{}'.format(amfi_code)
+        response = urlopen(url)
+        data_json = json.loads(response.read())
+
+        for i in data_json['data']:
+            result = float(i['nav'])
+            date_i = dt.datetime.strptime(i['date'], "%d-%m-%Y").date()
+
+            if date_i == tday:
+                return float(i['nav'])
+
+    except:
+        result='{}-{}-Exception'.format(success,tday)
+
+    return result
+
 
 @st.cache_data()
 def get_last_5_nav(amfi_code,tday):
@@ -154,7 +175,7 @@ def get_transaction_data():
 
     return df
 
-option = st.sidebar.selectbox("Which Dashboard?", ( 'GroWealth','Customer View','Fund House View','Scheme View','Fund Details','Reports','Admin'), 0)
+option = st.sidebar.selectbox("Which Dashboard?", ( 'GroWealth','Customer View','Fund House View','Scheme View','Reports'), 0)
 st.title(option)
 
 df_schm_map = get_schm_mapping_data()
@@ -449,7 +470,7 @@ def get_monthly_details(mth, year):
 
     return mth_sip, mth_pur, mth_stp_in, mth_swch_in, mth_swp, mth_sell, mth_stp_out, mth_swch_out
 
-def get_markdown_table(data, header='Y', footer='Y'):
+def get_markdown_table(data, header='Y', footer='N'):
 
 
     if header == 'Y':
@@ -471,20 +492,37 @@ def get_markdown_table(data, header='Y', footer='Y'):
                 html_script = html_script + "<th style='text-align:center''>{}</th>".format(i)
 
     html_script = html_script + "</tr></thead><tbody>"
+    last = data.index[-1]
     for j in data.index:
-        if ncols < 5:
-            html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:13px;padding:1px;';>"
-        elif ncols < 7:
-            html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:12px;padding:1px;';>"
-        else:
-            html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:10px;padding:1px;';>"
-
-        a = data.loc[j]
-        for k in cols:
-            if 'Fund' in k or 'Name' in k:
-                html_script = html_script + "<td style='padding:2px;text-align:left' rowspan='1'>{}</td>".format(a[k])
+        if footer =='Y' and j == last:
+            if ncols < 5:
+                html_script = html_script + "<tr style='border:1px;font-family:Courier; color:Red; font-size:14px;padding:1px;';>"
+            elif ncols < 7:
+                html_script = html_script + "<tr style='border:1px;font-family:Courier; color:Red; font-size:13px;padding:1px;';>"
             else:
-                html_script = html_script + "<td style='padding:2px;text-align:center' rowspan='1'>{}</td>".format(a[k])
+                html_script = html_script + "<tr style='border:1px;font-family:Courier; color:Red; font-size:11px;padding:1px;';>"
+
+            a = data.loc[j]
+            for k in cols:
+                if 'Fund' in k or 'Name' in k:
+                    html_script = html_script + "<td style='padding:2px;text-align:left' rowspan='1'>{}</td>".format(a[k])
+                else:
+                    html_script = html_script + "<td style='padding:2px;text-align:center' rowspan='1'>{}</td>".format(a[k])
+
+        else:
+            if ncols < 5:
+                html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:13px;padding:1px;';>"
+            elif ncols < 7:
+                html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:12px;padding:1px;';>"
+            else:
+                html_script = html_script + "<tr style='border:none;font-family:Courier; color:Blue; font-size:10px;padding:1px;';>"
+
+            a = data.loc[j]
+            for k in cols:
+                if 'Fund' in k or 'Name' in k:
+                    html_script = html_script + "<td style='padding:2px;text-align:left' rowspan='1'>{}</td>".format(a[k])
+                else:
+                    html_script = html_script + "<td style='padding:2px;text-align:center' rowspan='1'>{}</td>".format(a[k])
 
     html_script = html_script + '</tbody></table>'
 
@@ -514,7 +552,7 @@ def get_markdown_dict(dict, font_size = 10, format_amt = 'N'):
     return html_script
 
 
-def display_amount(amount):
+def display_amount(amount, paisa='N'):
 
     if amount != amount:
         amount = 0
@@ -563,7 +601,8 @@ def display_amount(amount):
     else:
         amt_str = amt_str + str(th_bal) + "." + decimal_part
 
-
+    if paisa == 'N':
+        amt_str = amt_str.split(".")[0]
     return amt_str
 
 @st.cache_data()
@@ -619,6 +658,8 @@ def get_xirr():
 
             mkt_value = get_balance_units_value(amfi_code,schm_bal_units)
 
+            #st.write(schm,fh_invested_amount,mkt_value)
+
             if mkt_value != mkt_value:
                 mkt_value = 0.0
 
@@ -627,8 +668,7 @@ def get_xirr():
 
         df_fh_cash_flow = pd.DataFrame(cash_flow_fh,columns=['Tran_Value','Num_Days'])
 
-        #df_fh_cash_flow.to_csv('pgim.csv')
-        #st.write(fh_market_value)
+        df_fh_cash_flow.to_csv('tran_value.csv')
         fh_xirr = round(optimize.newton(xirr, 3, args=(df_fh_cash_flow,fh_market_value,)),2)
 
         rec = fh, display_amount(fh_invested_amount), display_amount(fh_market_value),fh_market_value, fh_xirr
@@ -901,7 +941,7 @@ if option == 'Customer View':
     #st.plotly_chart(display_table(df_tran_dtl), use_container_width=True)
 
     #st.plotly_chart(display_table(df_cust[rpt_view]), use_container_width=True)
-    html_script = get_markdown_table(df_tran_dtl)
+    html_script = get_markdown_table(df_tran_dtl,footer='Y')
     st.markdown(html_script,unsafe_allow_html=True)
 
     csvfile = convert_df(df_tran_dtl)
@@ -952,9 +992,13 @@ if option == 'Fund House View':
         schm_xirr = df_xirr[df_xirr['Scheme Name']== sch_name ]['XIRR %'].iloc[0]
 
         df_tran_dtl.at[i,'Invested Amount'] = inv_amt
-        df_tran_dtl.at[i,'XIRR %'] = schm_xirr
+        df_tran_dtl.at[i,'XIRR %'] = round(schm_xirr,2)
 
 
+    overall_xirr = df_tran_dtl.loc[len(df_tran_dtl)-1]['XIRR %']
+    df_tran_dtl.at[len(df_tran_dtl)-1,'XIRR %'] = -100000.00
+    df_tran_dtl=df_tran_dtl.sort_values(by=['XIRR %'],ascending=False)
+    df_tran_dtl.at[len(df_tran_dtl)-1,'XIRR %'] = overall_xirr
 
     cols = [j for j in df_tran_dtl.columns]
 
@@ -966,7 +1010,7 @@ if option == 'Fund House View':
 
     #st.plotly_chart(display_table(df_tran_dtl), use_container_width=True)
 
-    html_script = get_markdown_table(df_tran_dtl[cols])
+    html_script = get_markdown_table(df_tran_dtl[cols],footer='Y')
     st.markdown(html_script,unsafe_allow_html=True)
 
     csvfile = convert_df(df_tran_dtl[cols])
@@ -1006,7 +1050,7 @@ if option == 'Scheme View':
 
 
     #st.plotly_chart(display_table(df_tran_dtl), use_container_width=True)
-    html_script = get_markdown_table(df_tran_dtl)
+    html_script = get_markdown_table(df_tran_dtl,footer='Y')
     st.markdown(html_script,unsafe_allow_html=True)
 
     csvfile = convert_df(df_tran_dtl)
@@ -1060,9 +1104,13 @@ if option == 'GroWealth':
 
     df_xirr = get_xirr()
 
+    df_xirr_tot = df_xirr[df_xirr['Fund House'] == 'Total']
+    df_xirr = df_xirr[df_xirr['Fund House'] != 'Total'].sort_values(by=['XIRR %'],ascending=False)
+    df_xirr = pd.concat([df_xirr,df_xirr_tot], axis=0)
+    #df_xirr.loc[len(df_xirr)]= ['Total']
     #st.plotly_chart(display_table(df_xirr[['Fund House','Amount Invested','Market Value','XIRR']]), use_container_width=True)
 
-    html_script = get_markdown_table(df_xirr[['Fund House','Amount Invested','Market Value','XIRR %']])
+    html_script = get_markdown_table(df_xirr[['Fund House','Amount Invested','Market Value','XIRR %']],footer='Y')
     st.markdown(html_script,unsafe_allow_html=True)
 
     csvfile = convert_df(df_xirr[['Fund House','Amount Invested','Market Value','XIRR %']])
@@ -1244,7 +1292,7 @@ if option == 'Reports':
         df_xirr_tr_1 = get_scheme_xirr(df_sd_tr_1)
 
         df_xirr_tr_1 = df_xirr_tr_1.drop(columns=['Market Value N'])
-        html_script = get_markdown_table(df_xirr_tr_1)
+        html_script = get_markdown_table(df_xirr_tr_1, footer='Y')
 
         st.markdown(html_script,unsafe_allow_html=True)
 
@@ -1261,7 +1309,7 @@ if option == 'Reports':
         df_xirr_tr_2 = get_scheme_xirr(df_sd_tr_2)
         df_xirr_tr_2 = df_xirr_tr_2.drop(columns=['Market Value N'])
 
-        html_script = get_markdown_table(df_xirr_tr_2)
+        html_script = get_markdown_table(df_xirr_tr_2, footer='Y')
 
         st.markdown(html_script,unsafe_allow_html=True)
 
@@ -1477,7 +1525,7 @@ if option == 'Fund Details':
 
 if option == 'Admin':
 
-    tday = dt.date.today()
+    tday = dt.date(2023,5,31)
     tday = "{}{}{}".format(tday.year,tday.month,tday.day)
 
 
@@ -1488,13 +1536,9 @@ if option == 'Admin':
         records_processed = 0
         for i in df_schm_map.index:
             amfi_code = df_schm_map.loc[i]['Amfi_Code']
-            result = get_last_5_nav(amfi_code,tday)
+            latest_nav = get_nav_date(amfi_code,tday)
 
-            result_str = result.split(":")
-
-            if result_str[0] == 'Y':
-                latest_nav = float(result_str[2])
-                df_schm_map.at[i,'NAV'] = latest_nav
+            df_schm_map.at[i,'NAV'] = latest_nav
 
 
             records_processed = records_processed + 1
