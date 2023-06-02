@@ -590,12 +590,12 @@ def display_amount(amount, paisa='N'):
         if cr_bal > 0:
             amt_str = amt_str + str(cr_amt) + "," + str(lkh_amt).rjust(2,'0') + "," + str(th_amt).rjust(2,'0') + "," + str(th_bal).rjust(3,'0') + "." + decimal_part
         else:
-            amt_str = amt_str + str(cr_amt) + ",00,000.00"
+            amt_str = amt_str + str(cr_amt) + ",00,00,000.00"
     elif lkh_amt > 0:
         if lkh_bal > 0:
             amt_str = amt_str + str(lkh_amt) + "," + str(th_amt).rjust(2,'0') + "," + str(th_bal).rjust(3,'0') + "." + decimal_part
         else:
-            amt_str = amt_str + str(lkh_amt) + ",000.00"
+            amt_str = amt_str + str(lkh_amt) + ",00,000.00"
     elif th_amt > 0:
         amt_str = amt_str + str(th_amt) + "," + str(th_bal).rjust(3,'0') + "." + decimal_part
     else:
@@ -603,6 +603,7 @@ def display_amount(amount, paisa='N'):
 
     if paisa == 'N':
         amt_str = amt_str.split(".")[0]
+
     return amt_str
 
 @st.cache_data()
