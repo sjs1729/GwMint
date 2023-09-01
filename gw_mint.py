@@ -25,7 +25,7 @@ col1.image('gw_logo.png', width=300)
 
 
 months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-tday = dt.date(2023,5,31)
+tday = dt.date(2023,8,31)
 
 curr_mth = tday.month
 curr_mth_year = tday.year
@@ -59,6 +59,32 @@ def get_mf_perf():
 def get_schm_mapping_data():
     df_schm_map = pd.read_csv('Scheme_Code_Mapping.csv')
     df_schm_map.set_index('Mint_Scheme',inplace=True)
+    t_day = dt.date.today()
+
+    progress_text = "Initialising NAV..."
+    my_bar = st.progress(0.0, text=progress_text)
+    total_records = len(df_schm_map)
+    records_processed = 0
+
+
+
+    for schm in df_schm_map.index:
+        amfi_code = df_schm_map.loc[schm,'Amfi_Code']
+        nav = get_curr_nav(amfi_code,t_day)
+        df_schm_map.at[schm,'NAV'] = nav
+
+        records_processed = records_processed + 1
+        percent_complete = records_processed/total_records
+
+        if records_processed % 5 == 0:
+            progress_text = "{} % Processed".format(round(100*percent_complete,2))
+            my_bar.progress(percent_complete, text=progress_text)
+
+
+    my_bar.progress(1.0, text='100% Processed')
+    time.sleep(3)
+    my_bar.empty()
+    df_schm_map.to_csv('Scheme_Code_Mapping.csv')
     return df_schm_map
 
 @st.cache_data()
@@ -91,6 +117,19 @@ def get_nav_date(amfi_code,tday):
 
     return result
 
+@st.cache_data()
+def get_curr_nav(amfi_code,tday):
+    try:
+        url = 'https://api.mfapi.in/mf/{}'.format(amfi_code)
+        response = urlopen(url)
+        data_json = json.loads(response.read())
+
+        nav = float(data_json['data'][0]['nav'])
+
+    except:
+        nav = 10.0
+
+    return nav
 
 @st.cache_data()
 def get_last_5_nav(amfi_code,tday):
@@ -796,7 +835,6 @@ def convert_df(df):
 
 @st.cache_data()
 def get_sys_exhaust(df_rpt_sys,sys_type):
-
     if sys_type == 'STP':
         sys_type = 'Systematic Transfer Out'
 
@@ -817,12 +855,13 @@ def get_sys_exhaust(df_rpt_sys,sys_type):
             amfi_code = df_schm_map.loc[schm_nm]['Amfi_Code']
 
 
-            curr_mth_value = df_cust_sys_schm[(df_cust_sys_schm['Mth'] == curr_mth ) & (df_cust_sys_schm['Year'] == curr_mth_year )]['TOTAL AMOUNT'].sum()
-            prev_mth_value = df_cust_sys_schm[(df_cust_sys_schm['Mth'] == prev_mth ) & (df_cust_sys_schm['Year'] == prev_mth_year )]['TOTAL AMOUNT'].sum()
+            curr_mth_value = df_cust_sys_schm[(df_cust_sys_schm['Mth'] == curr_mth ) & (df_cust_sys_schm['Year'] == curr_mth_year ) & (df_cust_sys_schm['TXN TYPE'] == sys_type )]['TOTAL AMOUNT'].sum()
+            prev_mth_value = df_cust_sys_schm[(df_cust_sys_schm['Mth'] == prev_mth ) & (df_cust_sys_schm['Year'] == prev_mth_year ) & (df_cust_sys_schm['TXN TYPE'] == sys_type )]['TOTAL AMOUNT'].sum()
 
 
             #curr_mth_value = df_cust_swp_schm[(df_cust_swp_schm['Mth'] == curr_mth ) & (df_cust_swp_schm['Year'] == curr_mth_year )]['TOTAL AMOUNT'].sum()
             #prev_mth_value = df_cust_swp_schm[(df_cust_swp_schm['Mth'] == prev_mth ) & (df_cust_swp_schm['Year'] == prev_mth_year )]['TOTAL AMOUNT'].sum()
+
 
             schm_bal_units = 0.0
             for i in df_cust_schm.index:
@@ -983,14 +1022,18 @@ if option == 'Fund House View':
     #df_txntype = df_cust[df_cust['TXN TYPE'] == txn_select ]
 
     df_xirr = get_scheme_xirr(df_fh)
+    #st.write(df_xirr)
+
 
     df_tran_dtl = get_transaction_details(txn_select,df_fh )
+    #st.write(df_tran_dtl)
     df_tran_dtl.at[len(df_tran_dtl)-1,'Fund Name'] = 'Total'
 
     df_tran_dtl.drop(columns=[ 'Fund House'],inplace=True)
 
     df_tran_dtl['Invested Amount'] = ''
     df_tran_dtl['XIRR %'] = 0.0
+
     for i in df_tran_dtl.index:
         sch_name  = df_tran_dtl.loc[i]['Fund Name']
         inv_amt   = df_xirr[df_xirr['Scheme Name']== sch_name ]['Invested Amount'].iloc[0]
