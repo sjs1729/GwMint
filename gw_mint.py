@@ -61,7 +61,7 @@ def get_schm_mapping_data():
     df_schm_map.set_index('Mint_Scheme',inplace=True)
     t_day = dt.date.today()
 
-    progress_text = "Initialising NAV..."
+    progress_text = "Updating Latest NAV..."
     my_bar = st.progress(0.0, text=progress_text)
     total_records = len(df_schm_map)
     records_processed = 0
@@ -77,7 +77,7 @@ def get_schm_mapping_data():
         percent_complete = records_processed/total_records
 
         if records_processed % 5 == 0:
-            progress_text = "{} % Processed".format(round(100*percent_complete,2))
+            progress_text = "Updating Latest NAV: {} % Processed".format(round(100*percent_complete,2))
             my_bar.progress(percent_complete, text=progress_text)
 
 
@@ -208,7 +208,7 @@ def get_transaction_data():
         percent_complete = records_processed/total_records
 
         if records_processed % 500 == 0:
-            progress_text = "{} % Processed".format(round(100*percent_complete,2))
+            progress_text = "Initialising Transaction Data: {} % Processed".format(round(100*percent_complete,2))
             my_bar.progress(percent_complete, text=progress_text)
 
 
