@@ -25,10 +25,25 @@ col1.image('gw_logo.png', width=300)
 
 
 months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-tday = dt.date(2023,8,31)
+tday = dt.date(2023,11,5)
 
 curr_mth = tday.month
 curr_mth_year = tday.year
+
+last_12_mths_list = []
+
+n_mth = curr_mth
+n_year = curr_mth_year
+for n in range(12):
+    if n_mth == 1:
+        values = "{}-{}".format(months[n_mth - 1],n_year)
+        n_mth = 12
+        n_year = n_year - 1
+    else:
+        values = "{}-{}".format(months[n_mth - 1],n_year)
+        n_mth = n_mth - 1
+
+    last_12_mths_list.append(values)
 
 curr_month = months[curr_mth - 1]
 
@@ -77,7 +92,7 @@ def get_schm_mapping_data():
         percent_complete = records_processed/total_records
 
         if records_processed % 5 == 0:
-            progress_text = "Updating Latest NAV: {} % Processed".format(round(100*percent_complete,2))
+            progress_text = "Updating Latest NAV:{} % Processed".format(round(100*percent_complete,2))
             my_bar.progress(percent_complete, text=progress_text)
 
 
@@ -169,11 +184,11 @@ def get_transaction_data():
     df = pd.read_csv('MINT_Transactions.csv')
 
 
-    df = df[['TRANSACTION DATE', 'SCHEME NAME', 'CATEGORY', 'SUB CATEGORY',
-       'FOLIO NO', 'APPLICANT', 'IWELL CODE', 'PAN', 'TXN TYPE', 'AMOUNT',
-       'UNITS', 'NAV', 'SB CODE', 'ARN NO', 'ORIGINAL TRANSACTION TYPE',
-       'EUIN', 'REMARKS', 'TDS', 'SIP Reg Date', 'STT', 'STAMP DUTY',
-       'TOTAL AMOUNT']]
+    df = df[['TRANSACTION DATE', 'SCHEME NAME', 'CATEGORY', 'SUB CATEGORY','FOLIO NO', 'APPLICANT', 'IWELL CODE',
+        'PAN', 'TXN TYPE', 'AMOUNT','UNITS', 'NAV', 'SB CODE', 'ARN NO','EUIN', 'TDS', 'SIP Reg Date', 'STT',
+         'STAMP DUTY','TOTAL AMOUNT']]
+
+    #df.to_csv('MINT_Transactions_x.csv')
 
     df['FUND_HOUSE']=df['SCHEME NAME'].apply(lambda x: x.split()[0])
     df['TRAN_DATE'] = df['TRANSACTION DATE'].apply(lambda x: dt.datetime.strptime(x,'%d/%m/%Y'))
@@ -395,7 +410,7 @@ def get_schm_trans_dtls(txn_type,df_x):
     return tran_details
 
 
-@st.cache_data()
+#@st.cache_data()
 def get_transaction_details(txn_type,df_x):
 
     if txn_type == 'All Transactions':
@@ -1114,10 +1129,19 @@ if option == 'Scheme View':
 
 if option == 'GroWealth':
 
-    markdown_text = "<BR><span style='font-family:Courier; font-size: 18px;'><b> Transaction Summary for:</b></span><span style='font-family:Courier; color:Blue; font-size: 16px;'> " + curr_month +"-" + str(curr_mth_year) + "</span>"
-    st.markdown(markdown_text,unsafe_allow_html=True)
+    col1, col2, col3 = st.columns((5,3,8))
 
-    sip, pur, stp_in, swch_in, swp, sell, stp_out, swch_out = get_monthly_details(curr_mth, curr_mth_year)
+    #markdown_text = "<BR><span style='font-family:Courier; font-size: 18px;'><b> Transaction Summary for:</b></span><span style='font-family:Courier; color:Blue; font-size: 16px;'> " + curr_month +"-" + str(curr_mth_year) + "</span>"
+    markdown_text = "<BR><span style='font-family:Courier; font-size: 18px;'><b> Transaction Summary for:</b></span>"
+
+    col1.markdown(markdown_text,unsafe_allow_html=True)
+    col2.write(' ')
+    mth_year_sel = col2.selectbox("Period",last_12_mths_list,0, label_visibility='collapsed')
+    mth_yr = mth_year_sel.split("-")
+    sel_mth = months.index(mth_yr[0]) + 1
+    sel_year = int(mth_yr[1])
+    #sip, pur, stp_in, swch_in, swp, sell, stp_out, swch_out = get_monthly_details(curr_mth, curr_mth_year)
+    sip, pur, stp_in, swch_in, swp, sell, stp_out, swch_out = get_monthly_details(sel_mth, sel_year)
 
     html_table_1 = "<table style='padding:0px;width=100%;border:none'><tbody style='border:none,padding:0px'>"
 
